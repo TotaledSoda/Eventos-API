@@ -177,4 +177,62 @@ class EventController extends Controller
             'data'    => $event,
         ]);
     }
+
+    /**
+     * 🔓 Listado PÚBLICO de eventos (para app móvil / web).
+     * SIN auth. Solo eventos publicados.
+     */
+    public function publicIndex(Request $request)
+    {
+        $query = Event::query()
+            ->where('status', 'published')
+            ->orderBy('starts_at', 'asc');
+
+        // Búsqueda por texto
+        if ($search = $request->query('q')) {
+            $query->where(function ($q2) use ($search) {
+                $q2->where('title', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
+            });
+        }
+
+        // Filtros opcionales
+        if ($category = $request->query('category')) {
+            $query->where('category', $category);
+        }
+
+        if ($organizerId = $request->query('organizer_id')) {
+            $query->where('organizer_id', $organizerId);
+        }
+
+        if ($city = $request->query('city')) {
+            $query->where('city', $city);
+        }
+
+        $events = $query
+            ->with(['organizer', 'ticketTypes'])
+            ->limit(50)
+            ->get();
+
+        return response()->json([
+            'data' => $events,
+        ]);
+    }
+
+    /**
+     * 🔓 Detalle PÚBLICO de un evento.
+     * SIN auth. Solo si está publicado.
+     */
+    public function publicShow(Event $event)
+    {
+        if ($event->status !== 'published') {
+            return response()->json([
+                'message' => 'Evento no disponible.',
+            ], 404);
+        }
+
+        return response()->json([
+            'data' => $event->load(['organizer', 'ticketTypes']),
+        ]);
+    }
 }

@@ -7,12 +7,11 @@ use App\Http\Controllers\Api\V1\TicketTypeController;
 use App\Http\Controllers\Api\V1\OrderController;
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\TicketValidationController;
+use App\Http\Controllers\Api\V1\Auth\AuthController;
 
 Route::prefix('v1')->group(function () {
 
-    // 🟢 RUTAS PÚBLICAS (SIN AUTH)
-
-    // Ping simple
+    // 🟢 Ping simple (para probar conexión)
     Route::get('ping', function () {
         return response()->json([
             'ok'   => true,
@@ -22,12 +21,22 @@ Route::prefix('v1')->group(function () {
         ]);
     });
 
-    // Eventos públicos para "Descubrir" en la app
+    // 🧑‍💻 AUTH
+    Route::prefix('auth')->group(function () {
+        Route::post('login',    [AuthController::class, 'login']);
+        Route::post('register', [AuthController::class, 'register']);
+
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::get('me',    [AuthController::class, 'me']);
+            Route::post('logout', [AuthController::class, 'logout']);
+        });
+    });
+
+    // 🟢 Eventos públicos
     Route::get('public/events', [EventController::class, 'publicIndex']);
     Route::get('public/events/{event}', [EventController::class, 'publicShow']);
 
-    // 🔒 RUTAS PROTEGIDAS (auth:sanctum)
-
+    // 🔒 Rutas protegidas
     Route::middleware(['auth:sanctum'])->group(function () {
 
         // 🎟️ Eventos (admin / organizador)
@@ -58,7 +67,7 @@ Route::prefix('v1')->group(function () {
             Route::post('{event}/unfeature', [EventController::class, 'unfeature'])
                 ->middleware('permission:events.feature');
 
-            // 🎫 Tipos de boletos para un evento
+            // 🎫 Tipos de boletos
             Route::get('{event}/ticket-types', [TicketTypeController::class, 'index'])
                 ->middleware('permission:events.edit');
 
@@ -76,7 +85,6 @@ Route::prefix('v1')->group(function () {
 
         // 🎟️ Tickets (wallet y admin)
         Route::get('my/tickets', [TicketController::class, 'myTickets']);
-
         Route::get('tickets/{ticket}', [TicketController::class, 'show']);
 
         Route::post('tickets/{ticket}/force-checkin', [TicketController::class, 'forceCheckIn'])

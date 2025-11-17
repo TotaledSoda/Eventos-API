@@ -1,21 +1,36 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
+
 use App\Http\Controllers\Api\V1\EventController;
 use App\Http\Controllers\Api\V1\TicketTypeController;
 use App\Http\Controllers\Api\V1\OrderController;
-
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\TicketValidationController;
 
-// ...
-
 Route::prefix('v1')->group(function () {
 
-    // ... auth y organizers que ya tienes
+    // 🟢 RUTAS PÚBLICAS (SIN AUTH)
+
+    // Ping simple
+    Route::get('ping', function () {
+        return response()->json([
+            'ok'   => true,
+            'app'  => 'eventos',
+            'env'  => config('app.env'),
+            'time' => now()->toDateTimeString(),
+        ]);
+    });
+
+    // Eventos públicos para "Descubrir" en la app
+    Route::get('public/events', [EventController::class, 'publicIndex']);
+    Route::get('public/events/{event}', [EventController::class, 'publicShow']);
+
+    // 🔒 RUTAS PROTEGIDAS (auth:sanctum)
 
     Route::middleware(['auth:sanctum'])->group(function () {
 
-        // 🎟️ Eventos
+        // 🎟️ Eventos (admin / organizador)
         Route::prefix('events')->group(function () {
             Route::get('/', [EventController::class, 'index'])
                 ->middleware('permission:events.view_all');
@@ -43,7 +58,7 @@ Route::prefix('v1')->group(function () {
             Route::post('{event}/unfeature', [EventController::class, 'unfeature'])
                 ->middleware('permission:events.feature');
 
-            // 🎫 Tipos de boletos para un evento (se cuelgan del evento)
+            // 🎫 Tipos de boletos para un evento
             Route::get('{event}/ticket-types', [TicketTypeController::class, 'index'])
                 ->middleware('permission:events.edit');
 
@@ -58,7 +73,6 @@ Route::prefix('v1')->group(function () {
             Route::patch('{event}/ticket-types/{ticketType}', [TicketTypeController::class, 'update'])
                 ->middleware('permission:events.edit');
         });
-         Route::middleware(['auth:sanctum'])->group(function () {
 
         // 🎟️ Tickets (wallet y admin)
         Route::get('my/tickets', [TicketController::class, 'myTickets']);
@@ -71,19 +85,13 @@ Route::prefix('v1')->group(function () {
         // 📲 Validación vía QR (staff)
         Route::post('tickets/validate', [TicketValidationController::class, 'validateCode'])
             ->middleware('permission:tickets.view');
-    });
 
-
-    });
-    Route::middleware(['auth:sanctum'])->group(function () {
-        // Crear orden (usuario autenticado)
+        // 💳 Órdenes
         Route::post('orders', [OrderController::class, 'store']);
 
-        // Listar / ver órdenes
         Route::get('orders', [OrderController::class, 'index']);
         Route::get('orders/{order}', [OrderController::class, 'show']);
 
-        // Acciones admin sobre órdenes
         Route::post('orders/{order}/refund', [OrderController::class, 'refund'])
             ->middleware('permission:orders.refund');
 
@@ -91,7 +99,6 @@ Route::prefix('v1')->group(function () {
             ->middleware('permission:orders.edit_status');
     });
 
-    // Webhook PayPal (sin auth, protegido por secret de PayPal / IPN en prod)
+    // 🌐 Webhook PayPal (sin auth)
     Route::post('paypal/webhook', [OrderController::class, 'webhook']);
-
 });
